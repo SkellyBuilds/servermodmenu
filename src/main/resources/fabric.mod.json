@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "id": "servermodmenu",
+  "name": "Server Mod Menu",
+  "version": "$version",
+  "environment": "client",
+  "license": "MIT",
+  "icon": "assets/servermodmenu/icon.png",
+  "entrypoints": {
+    "client": [
+      "com.skellybuilds.servermodmenu.ModMenu"
+    ]
+  },
+  "contact": {
+    "homepage": "https://modrinth.com/mod/modmenu",
+    "sources": "https://github.com/TerraformersMC/ModMenu",
+    "issues": "https://github.com/TerraformersMC/ModMenu/issues"
+  },
+  "depends": {
+    "fabric-resource-loader-v0": "*",
+    "fabric-screen-api-v1": ">=1.0.4",
+    "fabric-key-binding-api-v1": "*",
+    "fabric-lifecycle-events-v1": "*",
+    "fabricloader": ">=0.12.13",
+    "minecraft": ">=1.19.4-"
+  },
+  "breaks" : {
+    "better_mod_button": "*"
+  },
+  "authors": [
+    "SkellyBuilds",
+    "Prospector",
+    "haykam821",
+    "TerraformersMC"
+  ],
+  "contributors": [
+    "shedaniel",
+    "Draylar",
+    "Mordna",
+    "Madis0",
+    "Yanis48",
+    "LemmaEOF",
+    "fewizz",
+    "XuyuEre",
+    "geniiii",
+    "thiagokenis",
+    "Juuxel",
+    "Chloe Dawn",
+    "modmuss50",
+    "Patbox",
+    "Lykrast",
+    "Pyrofab",
+    "UpcraftLP",
+    "swordglowsblue",
+    "hinataaki",
+    "LeonXu98",
+    "magneticflux",
+    "vanja-san",
+    "AlexIIL",
+    "masoncook16",
+    "el97",
+    "Hephaestus-Dev",
+    "zabi94",
+    "dexman545",
+    "dhouck",
+    "Hambaka",
+    "po-stulate",
+    "FlashyReese",
+    "egeesin",
+    "TheGlitch76",
+    "ludg1e",
+    "williambl",
+    "PepperCode1",
+    "ThatTrollzer",
+    "ToffeeMax",
+    "kalucky0",
+    "Maaster",
+    "MartrixX",
+    "NotSteven",
+    "Dolphin 2.1",
+    "ENDERZOMBI102",
+    "anatom3000",
+    "OroArmor",
+    "jackassmc",
+    "Vaerian",
+    "RDKRACZ",
+    "Hulenkius",
+    "XfedeX",
+    "spnda",
+    "Jab125",
+    "SolidBlock",
+    "Tkain",
+    "nfitzen",
+    "DenaryDev",
+    "legenden",
+    "NaiNonTH",
+    "MagnusHJensen",
+    "Benjamin-Norton",
+    "triphora",
+    "Pyrrha"
+  ],
+  "description": "Allows you to install mod's that the server may need you to use!",
+  "mixins": [
+    "mixins.servermodmenu.json"
+  ],
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.discord": "https://discord.gg/uk6wM7WA"
+      }
+    }
+  }
+}
