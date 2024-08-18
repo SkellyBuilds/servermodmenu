@@ -255,7 +255,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 			} else {
 				serverStatR = new Networking.SocketStatusLoop(svn);
 				ModMenu.socketLoops.put(svn, serverStatR);
-				serverStat = new Thread(serverStatR);
+				serverStat = new Thread(ModMenu.socketLoops.get(svn));
 				serverStat.start();
 			}
 		}

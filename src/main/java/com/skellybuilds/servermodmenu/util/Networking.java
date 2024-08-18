@@ -627,7 +627,7 @@ public class Networking {
 		private int port = 27752;
 		public int status; // 0 = OK 1 = CONNECTING/BUSY 2 = OFFLINE
 		private boolean connected;
-		private boolean wasD;
+		private boolean wasD = true;
 
 		public SocketStatusLoop(String ip){
 			this.ip = ip;

@@ -12,9 +12,9 @@
     ]
   },
   "contact": {
-    "homepage": "https://modrinth.com/mod/modmenu",
-    "sources": "https://github.com/TerraformersMC/ModMenu",
-    "issues": "https://github.com/TerraformersMC/ModMenu/issues"
+    "homepage": "https://modrinth.com/mod/servermodmenu",
+    "sources": "https://github.com/SkellyBuilds/ServerModMenu",
+    "issues": "https://github.com/SkellyBuilds/ServerModMenuissues"
   },
   "depends": {
     "fabric-resource-loader-v0": "*",
