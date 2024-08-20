@@ -12,13 +12,20 @@ public class SMod {
 	public String server;
 	public ModMeta meta;
 	public boolean isComponent = false;
+	public boolean isOptional = false;
+	public boolean isDownloaded = false;
 	public SMod() {}
 
-	public SMod(String version, String id, ModMeta meta, Boolean isComponent) {
+	public SMod(String version, String id, ModMeta meta, Boolean isComponent, Boolean isOptional) {
 		this.version = version;
 		this.id = id;
 		this.meta = meta;
 		this.isComponent = isComponent;
+		this.isOptional = isOptional;
+	}
+
+	public void setDownloaded(boolean d){
+		isDownloaded = d;
 	}
 
 	public String getVersion() {

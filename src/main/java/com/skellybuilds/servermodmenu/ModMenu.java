@@ -18,7 +18,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.network.*;
 import net.minecraft.client.option.ServerList;
 import net.minecraft.client.resource.language.I18n;
 import net.minecraft.text.MutableText;
@@ -26,6 +26,7 @@ import net.minecraft.text.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetSocketAddress;
 import java.text.NumberFormat;
 import java.util.*;
 
@@ -51,6 +52,8 @@ public class ModMenu implements ClientModInitializer {
 	public static boolean runningQuilt = FabricLoader.getInstance().isModLoaded("quilt_loader");
 	public static boolean devEnvironment = FabricLoader.getInstance().isDevelopmentEnvironment();
 
+
+
 	public static Screen getConfigScreen(String modid, Screen menuScreen) {
 		if (!delayedScreenFactoryProviders.isEmpty()) {
 			delayedScreenFactoryProviders.forEach(map -> map.forEach(configScreenFactories::putIfAbsent));
@@ -71,14 +74,37 @@ public class ModMenu implements ClientModInitializer {
 		for (int i = 0; i < serverList.size(); i++) {
 			ServerInfo serverInfo = serverList.get(i);
 
-			List<String> stringArray = new ArrayList<>();
-			for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
-				stringArray.add(mod.getMetadata().getId());
+			if(serverInfo.address.contains(":")){
+				serverInfo.address = serverInfo.address.substring(0, serverInfo.address.indexOf(":"));
 			}
 
-			String data = "{\"playerN\":" + client.getSession().getUsername() + ", \"data\":" + stringArray.toString() + "}";
-			MainNetwork.connect(serverInfo.address, 27752);
-			MainNetwork.sendDataToServer(serverInfo.address, "addpmods|" + data);
+			Networking.ServerAddress parsedAd = Networking.ServerAddress.parse(serverInfo.address);
+
+			Optional<InetSocketAddress> optAddress = Networking.AllowedAddressResolver.DEFAULT.resolve(parsedAd).map(Address::getInetSocketAddress);
+			if(optAddress.isPresent()) {
+				final InetSocketAddress inetSocketAddress = (InetSocketAddress) optAddress.get();
+
+				List<String> stringArray = new ArrayList<>();
+				for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
+					stringArray.add(mod.getMetadata().getId());
+				}
+
+				String testS = inetSocketAddress.getAddress().getHostAddress();
+
+				String data = "{\"playerN\":" + client.getSession().getUsername() + ", \"data\":" + stringArray.toString() + "}";
+				MainNetwork.connect(testS, inetSocketAddress.getPort());
+
+				MainNetwork.sendDataToServer(testS, "addpmods|" + data);
+			} else {
+				List<String> stringArray = new ArrayList<>();
+				for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
+					stringArray.add(mod.getMetadata().getId());
+				}
+
+				String data = "{\"playerN\":" + client.getSession().getUsername() + ", \"data\":" + stringArray.toString() + "}";
+				MainNetwork.connect(serverInfo.address, 27752);
+				MainNetwork.sendDataToServer(serverInfo.address, "addpmods|" + data);
+			}
 		}
 
 
@@ -96,18 +122,28 @@ public class ModMenu implements ClientModInitializer {
 		for (int i = 0; i < serverList.size(); i++) {
 			ServerInfo serverInfo = serverList.get(i);
 
-			if(socketLoops.get(serverInfo.address) != null)
-			{
-				new Thread(socketLoops.get(serverInfo.address)).start();
+			Networking.ServerAddress parsedAd = Networking.ServerAddress.parse(serverInfo.address);
+
+			Optional<InetSocketAddress> optAddress = Networking.AllowedAddressResolver.DEFAULT.resolve(parsedAd).map(Address::getInetSocketAddress);
+			if(optAddress.isPresent()) {
+				final InetSocketAddress inetSocketAddress = (InetSocketAddress) optAddress.get();
+				if (socketLoops.get(inetSocketAddress.getAddress().getHostAddress()) != null) {
+					new Thread(socketLoops.get(serverInfo.address)).start();
+				} else {
+					Networking.SocketStatusLoop loop = new Networking.SocketStatusLoop(serverInfo.address, inetSocketAddress.getPort());
+					socketLoops.put(serverInfo.address, loop);
+					new Thread(loop).start();
+				}
 			} else {
-				Networking.SocketStatusLoop loop = new Networking.SocketStatusLoop(serverInfo.address);
-				socketLoops.put(serverInfo.address, loop);
-				new Thread(loop).start();
+				if (socketLoops.get(serverInfo.address) != null) {
+					new Thread(socketLoops.get(serverInfo.address)).start();
+				} else {
+					Networking.SocketStatusLoop loop = new Networking.SocketStatusLoop(serverInfo.address);
+					socketLoops.put(serverInfo.address, loop);
+					new Thread(loop).start();
+				}
 			}
 		}
-
-
-
 
 		ModMenuConfigManager.initializeConfig();
 		Set<String> modpackMods = new HashSet<>();

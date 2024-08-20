@@ -58,8 +58,8 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 	public boolean renderSvnNO = false;
 	private int ButtonX;
 	private int ButtonY;
-	private int ButtonSX = 32;
-	private int ButtonSY = 16;
+	private int ButtonSX = 20;
+	private int ButtonSY = 20;
 //	private boolean isPrevHB = false;
 //	private boolean disableB = false;
 //	private boolean isDone = false;
@@ -92,7 +92,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 	}
 	button.setVisible(false);
 	button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0F));
-		})).start();
+})).start();
 
 
 		if(!ModMenu.isAllDFB){
@@ -122,6 +122,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 		}
 		ModMenuConfigManager.save();
 		list.reloadFilters();
+		list.getParent().calcServersSize();
 		list.setSelected(null);
 		button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.BLOCK_PORTAL_TRIGGER, 1.0F));
 	}
@@ -162,11 +163,6 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 			if(t0.getState() != Thread.State.RUNNABLE){
 				a = true;
 				break;
-			}
-			try {
-				Thread.sleep(850);
-			} catch (InterruptedException e) {
-				LOGGER.info(e.toString());
 			}
 		}
 		return a;
@@ -455,7 +451,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 		}
 	}
 
-	private static final int CHUNK_SIZE = 1; // Number of items to process per chunk
+	private static final int CHUNK_SIZE = 3; // Number of items to process per chunk
 	private static final int SLEEP_TIME_MS = 1250; // Delay between chunks in milliseconds
 
 	private boolean processChunk(List<SMod> list) {

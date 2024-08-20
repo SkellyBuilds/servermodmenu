@@ -236,7 +236,7 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 
 				if(matched.isEmpty()){
 					if(isHidden.get() && ModMenuConfig.SHOWHIDDENSERVERS.getValue() || !isHidden.get()) {
-						this.addEntry(new IndependentEntry(new SMod("d", "d", null, false), this, serverName, true, true, addMoreY.get()));
+						this.addEntry(new IndependentEntry(new SMod("d", "d", null, false, false), this, serverName, true, true, addMoreY.get()));
 					}
 				}
 
@@ -261,6 +261,8 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 					setScrollAmount(Math.max(0, this.getMaxPosition() - (this.bottom - this.top - 4)));
 				}
 			});
+
+			parent.calcServersSize();
 
 			isInit = true;
 
@@ -372,11 +374,23 @@ if(isInit) {
 		int rowWidth = this.getRowWidth();
 		int entryLeft;
 		if (this.isSelectedEntry(index) && !entry.renderSvnNO) {
+
 			entryLeft = getRowLeft() - 2 + entry.getXOffset();
 			int selectionRight = this.getRowLeft() + rowWidth + 2;
-			float float_2 = this.isFocused() ? 1.0F : 0.5F;
 			RenderSystem.setShader(GameRenderer::getPositionProgram);
-			RenderSystem.setShaderColor(float_2, float_2, float_2, 1.0F);
+			if(entry.smod.isOptional){
+				if(entry.smod.isDownloaded){
+					RenderSystem.setShaderColor(!this.isFocused() ? 0f : 0.2f , !this.isFocused() ? 0.107f : 0.156f, !this.isFocused() ? 0.5f : 0.9f, 1.0F);
+				} else {
+					RenderSystem.setShaderColor(!this.isFocused() ? 0.59f : 0.110f , !this.isFocused() ? 0.59f : 0.110f, !this.isFocused() ? 0.59f : 0.110f, 1.0F);
+				}
+			} else {
+				if(entry.smod.isDownloaded){
+					RenderSystem.setShaderColor(!this.isFocused() ? 0.2f : 0.4f , !this.isFocused() ? 0.163f : 0.214f, !this.isFocused() ? 0.42f : 0.57f, 1.0F);
+				} else {
+					RenderSystem.setShaderColor(!this.isFocused() ? 0.189f : 0.212f , !this.isFocused() ? 0.2f : 0.4f, !this.isFocused() ? 0.17f : 0.22f, 1.0F);
+				}
+			}
 			Matrix4f matrix = DrawContext.getMatrices().peek().getPositionMatrix();
 			buffer.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
 			buffer.vertex(matrix, entryLeft, entryTop + entryHeight + 2, 0.0F).next();

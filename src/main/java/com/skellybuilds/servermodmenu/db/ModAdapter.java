@@ -19,6 +19,8 @@ public class ModAdapter implements JsonDeserializer<SMod> {
 		JsonObject metaJ = jsonObject.get("meta").getAsJsonObject();
 		SMod.ModMeta meta = gson2.fromJson(metaJ, SMod.ModMeta.class);
 		boolean isComponent = jsonObject.get("isComponent").getAsBoolean();
-		return new SMod(version, id, meta, isComponent);
+		// Previous SCMC versions do not have this as a variable
+		boolean isOptional = jsonObject.get("isOptional") != null && jsonObject.get("isOptional").getAsBoolean();
+		return new SMod(version, id, meta, isComponent, isOptional);
 	}
 }

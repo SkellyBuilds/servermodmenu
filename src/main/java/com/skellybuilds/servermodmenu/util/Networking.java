@@ -1,26 +1,25 @@
 package com.skellybuilds.servermodmenu.util;
 import java.io.*;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
 import java.nio.file.Path;
 import java.util.*;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HostAndPort;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mojang.logging.LogUtils;
 import com.skellybuilds.servermodmenu.ModMenu;
 import com.skellybuilds.servermodmenu.db.ModAdapter;
 import com.skellybuilds.servermodmenu.db.SMod;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.network.*;
 import net.minecraft.client.option.ServerList;
-import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.jar.JarFile;
@@ -28,6 +27,10 @@ import java.util.zip.ZipEntry;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.InitialDirContext;
 
 import static com.skellybuilds.servermodmenu.ModMenu.MainNetwork;
 
@@ -37,6 +40,7 @@ public class Networking {
 	private final Map<String, Integer> ports = new HashMap<>();
 	public Map<String, Thread> networkThreads = new HashMap<>();
 	public Map<String, Thread> downloadThreads = new HashMap<>();
+	public Map<String, String> networkErrors = new HashMap<>();
 	private boolean logSER = true;
 
 	public void connect(String ipaddress, int port){
@@ -44,15 +48,13 @@ public class Networking {
 			ports.put(ipaddress, port); // may be useful for debugging
 			sockets.put(ipaddress, new Socket(ipaddress, port));
 			logSER = true;
+			networkErrors.put(ipaddress, "OK");
 		//	LOGGER.info("Connected to socket!");
 		} catch (Exception e) {
-			if(logSER) {
+			if(!Objects.equals(networkErrors.get(ipaddress), "ERR")){
 				LOGGER.error("Could not connect to the socket. Server may be down or SCMC is dead");
-				logSER = false;
+				networkErrors.put(ipaddress, "ERR");
 			}
-			//LOGGER.error(e.toString());
-			//LOGGER.error(e.toString()); - would be retarded to crash the game when the socket fails to connect, guranteed
-			//throw new RuntimeException("Netwoking exception: Read the logs!");
 		}
 	}
 
@@ -154,7 +156,6 @@ public class Networking {
 			return;
 		}
 
-		if (!isDthreadDone(ip)) {
 			do {
 				try {
 					Thread.sleep(250);
@@ -162,7 +163,6 @@ public class Networking {
 					LOGGER.error("Interrupted: {}", e.getMessage());
 				}
 			} while (!isDthreadDone(ip));
-		}
 
 		Thread fD = new Thread(() -> {
 			try {
@@ -171,7 +171,7 @@ public class Networking {
 
 //				}
 
-				connect(ip, 27752);
+				connect(ip, ports.get(ip));
 				while(!isSocketValid(ip)){
 					LOGGER.info("Waiting for connection {}", ip);
 				}
@@ -219,7 +219,7 @@ public class Networking {
 						int bytesRead;
 
 //
-						connect(ip, 27752);
+						connect(ip, ports.get(ip));
 						while(!isSocketValid(ip)){
 							LOGGER.info("Waiting for connection {}", ip);
 						}
@@ -335,66 +335,85 @@ public class Networking {
 	public void reloadServer(String ip){
 		final SMod[][] ModsA = {{}};
 
+
+
+		if(ip.contains(":")){
+			ip = ip.substring(0, ip.indexOf(":"));
+		}
+		int port;
+
+		ServerAddress parsedAd = ServerAddress.parse(ip);
+
+		Optional<InetSocketAddress> optAddress = AllowedAddressResolver.DEFAULT.resolve(parsedAd).map(Address::getInetSocketAddress);
+		if(optAddress.isPresent()) {
+			final InetSocketAddress inetSocketAddress = (InetSocketAddress) optAddress.get();
+			//ip = inetSocketAddress.getHostName();
+			port = inetSocketAddress.getPort();
+		} else {
+			port = 27752;
+		}
+
 		if(MainNetwork.networkThreads.get(ip) == null) {
 			LOGGER.info("Creating Network Thread - "+ip);
+			String finalIp = ip;
 			Thread fD = new Thread(() -> {
-				if (!MainNetwork.isSocketValid(ip)) {
-					MainNetwork.connect(ip, 27752);
-					boolean a = MainNetwork.isSocketValid(ip);
+				if (!MainNetwork.isSocketValid(finalIp)) {
+					MainNetwork.connect(finalIp, port);
+					boolean a = MainNetwork.isSocketValid(finalIp);
 					if (a) {
 						GsonBuilder gsonBuilder = new GsonBuilder();
 						gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 						Gson gson = gsonBuilder.create();
-						String str = MainNetwork.requestNResponse(ip, "getall");
+						String str = MainNetwork.requestNResponse(finalIp, "getall");
 						ModsA[0] = gson.fromJson(str, SMod[].class);
 						LOGGER.info(Arrays.toString(ModsA[0]));
 						boolean sinit = false;
 						if(ModsA[0].length < 1){
-							ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+							ModMenu.SMODS.computeIfAbsent(finalIp, k -> new HashMap<>());
 						}
 						for (SMod smod : ModsA[0]) {
 							if(!sinit){
-								ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+								ModMenu.SMODS.computeIfAbsent(finalIp, k -> new HashMap<>());
 								ModMenu.SMODSA = new HashMap<>();
 								sinit = true;
 							}
 
-							smod.server = ip;
-							ModMenu.SMODS.get(ip).put(smod.getId(), smod);
+							smod.server = finalIp;
+							ModMenu.SMODS.get(finalIp).put(smod.getId(), smod);
 
 
 						}
-					} else ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+					} else ModMenu.SMODS.computeIfAbsent(finalIp, k -> new HashMap<>());
 
 					;
-				} else if (!MainNetwork.isSocketValid(ip)) {
+				} else if (!MainNetwork.isSocketValid(finalIp)) {
 					if (ModsA[0].length < 1) {
-						ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+						ModMenu.SMODS.computeIfAbsent(finalIp, k -> new HashMap<>());
 					}
-					LOGGER.error("Unable to connect to" + ip);
+					LOGGER.error("Unable to connect to" + finalIp);
 				}
 				else {
-					boolean a = MainNetwork.isSocketValid(ip);
+					boolean a = MainNetwork.isSocketValid(finalIp);
 					if(a) {
 						GsonBuilder gsonBuilder = new GsonBuilder();
 						gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 						Gson gson = gsonBuilder.create();
-						String str = MainNetwork.requestNResponse(ip, "getall");
+						String str = MainNetwork.requestNResponse(finalIp, "getall");
 						ModsA[0] = gson.fromJson(str, SMod[].class);
 						LOGGER.info(Arrays.toString(ModsA[0]));
 						boolean sinit = false;
 						if (ModsA[0].length < 1) {
-							ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+							ModMenu.SMODS.computeIfAbsent(finalIp, k -> new HashMap<>());
 						}
 						for (SMod smod : ModsA[0]) {
 							if (!sinit) {
-								ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+								ModMenu.SMODS.computeIfAbsent(finalIp, k -> new HashMap<>());
 								ModMenu.SMODSA = new HashMap<>();
 								sinit = true;
 							}
 
-							smod.server = ip;
-							ModMenu.SMODS.get(ip).put(smod.getId(), smod);
+							smod.server = finalIp;
+							ModMenu.SMODS.get(finalIp).put(smod.getId(), smod);
 						}
 					}
 				}
@@ -407,57 +426,58 @@ public class Networking {
 			if(MainNetwork.networkThreads.get(ip).getState() != Thread.State.RUNNABLE) {
 				MainNetwork.networkThreads.remove(ip);
 				LOGGER.info("Creating Network Thread - "+ip);
+				String finalIp1 = ip;
 				Thread fD = new Thread(() -> {
-					if (!MainNetwork.isSocketValid(ip)) {
-						MainNetwork.connect(ip, 27752);
-						boolean a = MainNetwork.isSocketValid(ip);
+					if (!MainNetwork.isSocketValid(finalIp1)) {
+						MainNetwork.connect(finalIp1, port);
+						boolean a = MainNetwork.isSocketValid(finalIp1);
 						if (a) {
 							GsonBuilder gsonBuilder = new GsonBuilder();
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
-							String str = MainNetwork.requestNResponse(ip, "getall");
+							String str = MainNetwork.requestNResponse(finalIp1, "getall");
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
 							boolean sinit = false;
 							if(ModsA[0].length < 1){
-								ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+								ModMenu.SMODS.computeIfAbsent(finalIp1, k -> new HashMap<>());
 							}
 							for (SMod smod : ModsA[0]) {
 								if(!sinit){
-									ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+									ModMenu.SMODS.computeIfAbsent(finalIp1, k -> new HashMap<>());
 									ModMenu.SMODSA = new HashMap<>();
 									sinit = true;
 								}
-								smod.server = ip;
-								ModMenu.SMODS.get(ip).put(smod.getId(), smod);
+								smod.server = finalIp1;
+								ModMenu.SMODS.get(finalIp1).put(smod.getId(), smod);
 
 							}
-						} else ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+						} else ModMenu.SMODS.computeIfAbsent(finalIp1, k -> new HashMap<>());
 						;
-					} else if (!MainNetwork.isSocketValid(ip))
-						LOGGER.error("Unable to connect to" + ip);
+					} else if (!MainNetwork.isSocketValid(finalIp1))
+						LOGGER.error("Unable to connect to" + finalIp1);
 					else {
-						boolean a = MainNetwork.isSocketValid(ip);
+						boolean a = MainNetwork.isSocketValid(finalIp1);
 						if(a) {
 							GsonBuilder gsonBuilder = new GsonBuilder();
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
-							String str = MainNetwork.requestNResponse(ip, "getall");
+							String str = MainNetwork.requestNResponse(finalIp1, "getall");
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
 							boolean sinit = false;
 							if (ModsA[0].length < 1) {
-								ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+								ModMenu.SMODS.computeIfAbsent(finalIp1, k -> new HashMap<>());
 							}
 							for (SMod smod : ModsA[0]) {
 								if (!sinit) {
-									ModMenu.SMODS.computeIfAbsent(ip, k -> new HashMap<>());
+									ModMenu.SMODS.computeIfAbsent(finalIp1, k -> new HashMap<>());
 									ModMenu.SMODSA = new HashMap<>();
 									sinit = true;
 								}
 
-								smod.server = ip;
-								ModMenu.SMODS.get(ip).put(smod.getId(), smod);
+								smod.server = finalIp1;
+								ModMenu.SMODS.get(finalIp1).put(smod.getId(), smod);
 
 							}
 						}
@@ -477,20 +497,38 @@ public class Networking {
 		serverList.loadFile();
 		final SMod[][] ModsA = {{}};
 
+
 		for (int i = 0; i < serverList.size(); i++) {
 			ServerInfo serverInfo = serverList.get(i);
+			int port;
+
+			if(serverInfo.address.contains(":")){
+				serverInfo.address = serverInfo.address.substring(0, serverInfo.address.indexOf(":"));
+			} // a port found
+
+			Networking.ServerAddress parsedAd = Networking.ServerAddress.parse(serverInfo.address);
+
+			Optional<InetSocketAddress> optAddress = Networking.AllowedAddressResolver.DEFAULT.resolve(parsedAd).map(Address::getInetSocketAddress);
+			if(optAddress.isPresent()){
+				final InetSocketAddress inetSocketAddress = (InetSocketAddress) optAddress.get();
+
+				//serverInfo.address = inetSocketAddress.getAddress().getHostAddress();
+				port = inetSocketAddress.getPort();
+			} else {
+				port = 27752;
+			}
 
 			if(MainNetwork.networkThreads.get(serverInfo.address) == null) {
 				LOGGER.info("Creating Network Thread - "+serverInfo.address);
 				Thread fD = new Thread(() -> {
 					if (!MainNetwork.isSocketValid(serverInfo.address)) {
-						MainNetwork.connect(serverInfo.address, 27752);
+						MainNetwork.connect(serverInfo.address, port);
 						boolean a = MainNetwork.isSocketValid(serverInfo.address);
 						if (a) {
 							GsonBuilder gsonBuilder = new GsonBuilder();
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
-							MainNetwork.connect(serverInfo.address, 27752);
+							MainNetwork.connect(serverInfo.address, port);
 							String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
@@ -525,7 +563,7 @@ public class Networking {
 							GsonBuilder gsonBuilder = new GsonBuilder();
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
-							MainNetwork.connect(serverInfo.address, 27752);
+							MainNetwork.connect(serverInfo.address, port);
 							String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
@@ -556,13 +594,13 @@ public class Networking {
 					LOGGER.info("Creating Network Thread - "+serverInfo.address);
 					Thread fD = new Thread(() -> {
 						if (!MainNetwork.isSocketValid(serverInfo.address)) {
-							MainNetwork.connect(serverInfo.address, 27752);
+							MainNetwork.connect(serverInfo.address, port);
 							boolean a = MainNetwork.isSocketValid(serverInfo.address);
 							if (a) {
 								GsonBuilder gsonBuilder = new GsonBuilder();
 								gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 								Gson gson = gsonBuilder.create();
-								MainNetwork.connect(serverInfo.address, 27752);
+								MainNetwork.connect(serverInfo.address, port);
 								String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
 								ModsA[0] = gson.fromJson(str, SMod[].class);
 								LOGGER.info(Arrays.toString(ModsA[0]));
@@ -591,7 +629,7 @@ public class Networking {
 								GsonBuilder gsonBuilder = new GsonBuilder();
 								gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 								Gson gson = gsonBuilder.create();
-								MainNetwork.connect(serverInfo.address, 27752);
+								MainNetwork.connect(serverInfo.address, port);
 								String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
 								ModsA[0] = gson.fromJson(str, SMod[].class);
 								LOGGER.info(Arrays.toString(ModsA[0]));
@@ -630,14 +668,19 @@ public class Networking {
 		private boolean wasD = true;
 
 		public SocketStatusLoop(String ip){
+			if(ip.contains(":")){
+				ip = ip.substring(0, ip.indexOf(":"));
+			}
 			this.ip = ip;
-
 			long startTime = System.currentTimeMillis();
 
 			LOGGER.info("[ServerModMenu] Starting Socket Status Loop - {} - {}", Thread.currentThread().getId(), startTime);
 		}
 
 		public SocketStatusLoop(String ip, int Port){
+			if(ip.contains(":")){
+				ip = ip.substring(0, ip.indexOf(":"));
+			}
 			this.ip = ip;
 			this.port = Port;
 			long startTime = System.currentTimeMillis();
@@ -681,92 +724,184 @@ public class Networking {
 		}
 	}
 
-		public class HTTPS {
-		private static final String MODRINTH_API_BASE = "https://api.modrinth.com/v2/project/";
-
-		public static boolean isModAvailableDL(String modId, String version) {
-			try {
-				// Step 1: Fetch Mod Information from Modrinth
-				URL url = new URL(MODRINTH_API_BASE + modId + "/version/" + version);
-				HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-				connection.setRequestMethod("GET");
-				connection.setRequestProperty("User-Agent", "ServerModMenuNetwork");
-
-				return connection.getResponseCode() == 200;
-
-			} catch (IOException e) {
-				LOGGER.error(e.toString());
-				return false;
-			}
-
-			//return false;
+	static int portOrDefault(String port) {
+		try {
+			return Integer.parseInt(port.trim());
+		} catch (Exception var2) {
+			return 27752;
 		}
-
-		private static void downloadFile(String fileURL, String saveDir, String fileName) throws IOException {
-			URL url = new URL(fileURL);
-			HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
-			int responseCode = httpConn.getResponseCode();
-
-			// Check HTTP response code
-			if (responseCode == HttpURLConnection.HTTP_OK) {
-				// Create directories if they don't exist
-				Files.createDirectories(Paths.get(saveDir));
-
-				// Open input stream from the HTTP connection
-				InputStream inputStream = httpConn.getInputStream();
-
-				// Create the output file
-				File saveFile = new File(saveDir + File.separator + fileName);
-				FileOutputStream outputStream = new FileOutputStream(saveFile);
-
-				// Buffer to hold data
-				byte[] buffer = new byte[4096];
-				int bytesRead;
-
-				// Read data from input stream and write to output file
-				while ((bytesRead = inputStream.read(buffer)) != -1) {
-					outputStream.write(buffer, 0, bytesRead);
-				}
-
-				// Close streams
-				outputStream.close();
-				inputStream.close();
-
-				System.out.println("File downloaded: " + saveFile.getAbsolutePath());
-
-			} else {
-				System.out.println("No file to download. Server replied with code: " + responseCode);
-			}
-			httpConn.disconnect();
-		}
-
-
-		public static void downloadMod(String modId, String version, String downloadFolder) {
-			try {
-				// Step 1: Fetch Mod Information from Modrinth
-				URL url = new URL(MODRINTH_API_BASE + modId + "/version/" + version);
-				HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-				connection.setRequestMethod("GET");
-				connection.setRequestProperty("User-Agent", "ServerModMenuNetwork");
-
-				if (connection.getResponseCode() == 200) {
-					InputStream responseStream = new BufferedInputStream(connection.getInputStream());
-					JsonObject responseJson = JsonParser.parseReader(new InputStreamReader(responseStream)).getAsJsonObject();
-					String downloadUrl = responseJson.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString();
-
-					// Step 2: Download the Mod
-					downloadFile(downloadUrl, downloadFolder, modId + "-" + version + ".jar");
-					System.out.println("Mod downloaded successfully!");
-
-				} else {
-					System.out.println("Failed to fetch mod information. Response code: " + connection.getResponseCode());
-				}
-
-			} catch (IOException e) {
-				LOGGER.error(e.toString());
-			}
-		}
-
 	}
+
+
+	public static class AllowedAddressResolver {
+		public static final Networking.AllowedAddressResolver DEFAULT;
+		private final Networking.AddressResolver addressResolver;
+		private final Networking.RedirectResolver redirectResolver;
+		//private final BlockListChecker blockListChecker;
+
+		@VisibleForTesting
+		AllowedAddressResolver(Networking.AddressResolver addressResolver, Networking.RedirectResolver redirectResolver) {
+			this.addressResolver = addressResolver;
+			this.redirectResolver = redirectResolver;
+		}
+
+		public Optional<Address> resolve(ServerAddress address) {
+			Optional<Address> optional = this.addressResolver.resolve(address);
+			if (optional.isPresent()){
+				Optional<ServerAddress> optional2 = this.redirectResolver.lookupRedirect(address);
+				if (optional2.isPresent()) {
+					optional = this.addressResolver.resolve((ServerAddress)optional2.get());
+				}
+
+				return optional;
+			} else {
+				return Optional.empty();
+			}
+		}
+
+		static {
+			DEFAULT = new Networking.AllowedAddressResolver(Networking.AddressResolver.DEFAULT, Networking.RedirectResolver.createSrv());
+		}
+	}
+
+
+	public interface AddressResolver {
+		Logger LOGGER = LogUtils.getLogger();
+		Networking.AddressResolver DEFAULT = (address) -> {
+			try {
+				InetAddress inetAddress = InetAddress.getByName(address.getAddress());
+				return Optional.of(Address.create(new InetSocketAddress(inetAddress, address.getPort())));
+			} catch (UnknownHostException var2) {
+				UnknownHostException unknownHostException = var2;
+				LOGGER.debug("Couldn't resolve server {} address", address.getAddress(), unknownHostException);
+				return Optional.empty();
+			}
+		};
+
+		Optional<Address> resolve(ServerAddress address);
+	}
+
+
+	public interface RedirectResolver {
+		Logger LOGGER = LogUtils.getLogger();
+		Networking.RedirectResolver INVALID = (address) -> {
+			return Optional.empty();
+		};
+
+		Optional<ServerAddress> lookupRedirect(ServerAddress address);
+
+		static Networking.RedirectResolver createSrv() {
+			InitialDirContext dirContext;
+			try {
+				String string = "com.sun.jndi.dns.DnsContextFactory";
+				Class.forName("com.sun.jndi.dns.DnsContextFactory");
+				Hashtable<String, String> hashtable = new Hashtable<>(); // Why mojang?
+				hashtable.put("java.naming.factory.initial", "com.sun.jndi.dns.DnsContextFactory");
+				hashtable.put("java.naming.provider.url", "dns:");
+				hashtable.put("com.sun.jndi.dns.timeout.retries", "1");
+				dirContext = new InitialDirContext(hashtable);
+			} catch (Throwable var3) {
+				Throwable throwable = var3;
+				LOGGER.error("Failed to initialize SRV redirect resolved, some servers might not work", throwable);
+				return INVALID;
+			}
+
+			return (address) -> {
+				if (address.getPort() == 27752) {
+					try {
+						Attributes attributes = dirContext.getAttributes("_scmc._tcp." + address.getAddress(), new String[]{"SRV"});
+						Attribute attribute = attributes.get("srv");
+						if (attribute != null) {
+							String[] strings = attribute.get().toString().split(" ", 4);
+							return Optional.of(new ServerAddress(strings[3], Networking.portOrDefault(strings[2])));
+						}
+					} catch (Throwable var5) {
+					}
+				}
+
+				return Optional.empty();
+			};
+		}
+	}
+
+	public static final class ServerAddress {
+		private static final Logger LOGGER = LogUtils.getLogger();
+		private final HostAndPort hostAndPort;
+		private static final Networking.ServerAddress INVALID = new Networking.ServerAddress(HostAndPort.fromParts("server.invalid", 25565));
+
+		public ServerAddress(String host, int port) {
+			this(HostAndPort.fromParts(host, port));
+		}
+
+		private ServerAddress(HostAndPort hostAndPort) {
+			this.hostAndPort = hostAndPort;
+		}
+
+		public String getAddress() {
+			try {
+				return IDN.toASCII(this.hostAndPort.getHost());
+			} catch (IllegalArgumentException var2) {
+				return "";
+			}
+		}
+
+		public int getPort() {
+			return this.hostAndPort.getPort();
+		}
+
+		public static Networking.ServerAddress parse(String address) {
+			if (address == null) {
+				return INVALID;
+			} else {
+				try {
+					HostAndPort hostAndPort = HostAndPort.fromString(address).withDefaultPort(27752);
+					return hostAndPort.getHost().isEmpty() ? INVALID : new Networking.ServerAddress(hostAndPort);
+				} catch (IllegalArgumentException var2) {
+					IllegalArgumentException illegalArgumentException = var2;
+					LOGGER.info("Failed to parse URL {}", address, illegalArgumentException);
+					return INVALID;
+				}
+			}
+		}
+
+		public static boolean isValid(String address) {
+			try {
+				HostAndPort hostAndPort = HostAndPort.fromString(address);
+				String string = hostAndPort.getHost();
+				if (!string.isEmpty()) {
+					IDN.toASCII(string);
+					return true;
+				}
+			} catch (IllegalArgumentException var3) {
+			}
+
+			return false;
+		}
+
+		static int portOrDefault(String port) {
+			try {
+				return Integer.parseInt(port.trim());
+			} catch (Exception var2) {
+				return 27752;
+			}
+		}
+
+		public String toString() {
+			return this.hostAndPort.toString();
+		}
+
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			} else {
+				return o instanceof ServerAddress && this.hostAndPort.equals(((ServerAddress) o).hostAndPort);
+			}
+		}
+
+		public int hashCode() {
+			return this.hostAndPort.hashCode();
+		}
+	}
+
 
 }

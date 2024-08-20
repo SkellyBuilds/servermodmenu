@@ -45,6 +45,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -56,7 +58,8 @@ public class ModsScreen extends Screen {
 	private static final Identifier FILTERS_BUTTON_LOCATION = new Identifier(ModMenu.MOD_ID, "textures/gui/filters_button.png");
 	private static final Identifier DOWNLOSD_BUTTON_LOCATION = new Identifier(ModMenu.MOD_ID, "textures/gui/download_button.png");
 	private static final Identifier RELOADS_BUTTON_LOCATION = new Identifier(ModMenu.MOD_ID, "textures/gui/reload_servers.png");
-
+	private static final Text OptModT = Text.translatable("modmenu.isOpt");
+	private static final Text ReqModT = Text.translatable("modmenu.isReq");
 	private static final Text TOGGLE_FILTER_OPTIONS = Text.translatable("modmenu.toggleFilterOptions");
 	private static final Text RELOAD_ALLSERV_T = Text.translatable("modmenu.reloadAllServers");
 	private static final Text DOWNLOADALLSERV_T = Text.translatable("modmenu.downloadsAll");
@@ -85,6 +88,7 @@ public class ModsScreen extends Screen {
 	public final Map<String, Throwable> modScreenErrors = new HashMap<>();
 	private MinecraftClient client = MinecraftClient.getInstance();
 	private ServerList serverList;
+	public AtomicInteger amountofvmods = new AtomicInteger();
 
 
 
@@ -118,9 +122,9 @@ public class ModsScreen extends Screen {
 		return isAllDone[0];
 	}
 
-	private void setupSMods(SMod[] smods){
-
-
+	public void switchToConfirm(){
+		MinecraftClient.getInstance().setScreen(new ConfirmationScreen(this, this::resCB, this::backCB, Text.literal("Do you wish to close the game?")
+			.formatted(Formatting.ITALIC).formatted(Formatting.GREEN)));
 	}
 
 	@Override
@@ -135,8 +139,33 @@ public class ModsScreen extends Screen {
 		LOGGER.info("Your game didn't crash, you intentionally (or by mistake, you never know) closed the game. Restart the game manually");
 		MinecraftClient.getInstance().scheduleStop();
 	}
+
+	public void calcServersSize(){
+		amountofvmods.set(0);
+		modList.children().forEach((entry) -> {
+			if(entry.isFirst) {
+				AtomicBoolean isHidden = new AtomicBoolean(false);
+				if (!entry.renderSvnNO && ModMenu.SMODS.get(entry.serverName).size() > 1) {
+					ModMenuConfig.HIDDEN_SERVERS.getValue().forEach((name) -> {
+							if (Objects.equals(name, entry.serverName)) {
+								isHidden.set(true);
+							}
+						});
+
+					if(isHidden.get()){
+						if(ModMenuConfig.SHOWHIDDENSERVERS.getValue()) amountofvmods.getAndIncrement();
+					} else {
+						amountofvmods.getAndIncrement();
+					}
+				}
+			}
+		});
+	}
+
 	@Override
 	protected void init() {
+
+
 
 		serverList = new ServerList(client);
 		serverList.loadFile();
@@ -261,7 +290,13 @@ while(true) {
 		}){
 			@Override
 			public void render(DrawContext DrawContext, int mouseX, int mouseY, float delta) {
-			if(selected == null) {
+			if(amountofvmods.get() == 0){
+				visible = false;
+				active = false;
+				return;
+			}
+
+				if(selected == null) {
 				visible = false;
 				active = false;
 				return;
@@ -315,29 +350,38 @@ while(true) {
 				});
 
 				orgw.start();
-				new Thread(() -> {
+
+				Thread bla = new Thread(() -> {
 					while (true) {
 						if (orgw.getState() != Thread.State.RUNNABLE) {
 							ModMenu.idsDLD.add(selected.getSMod().id);
+							selected.smod.isDownloaded = true;
 							button.active = true;
-							break;
+							if(!ModMenu.isAllDFB){
+								List<Boolean> isAllt = new ArrayList<>();
+								ModMenu.buttonEntries.forEach((name, mButton) -> {
+									if(!mButton.visible)
+										isAllt.add(true);
+								});
+
+								if(isAllt.size() == ModMenu.buttonEntries.size())
+									ModMenu.isAllDFB = true;
+							}
+					break;
 						}
 					}
-				}).start();
+					return;
+				});
 
-				if(!ModMenu.isAllDFB){
-					List<Boolean> isAllt = new ArrayList<>();
-					ModMenu.buttonEntries.forEach((name, mButton) -> {
-						if(!mButton.visible)
-							isAllt.add(true);
-					});
+				bla.start();
 
-					if(isAllt.size() == ModMenu.buttonEntries.size())
-						ModMenu.isAllDFB = true;
-				}
+				do {
+					if (bla.getState() != Thread.State.RUNNABLE) {
+						switchToConfirm();
+						break;
+					}
+				} while (true);
 
-				MinecraftClient.getInstance().setScreen(new ConfirmationScreen(this, this::resCB, this::backCB, Text.literal("Do you wish to close the game?")
-					.formatted(Formatting.ITALIC).formatted(Formatting.GREEN)));
 			}
 		}) {
 			@Override
@@ -477,6 +521,8 @@ while(true) {
 		ButtonWidget filtersButton = new TexturedButtonWidget(paneWidth / 2 + searchBoxWidth / 2 - 20 / 2 + 2, 22, 20, 20, 0, 0, 20, FILTERS_BUTTON_LOCATION, 32, 64, button -> filterOptionsShown = !filterOptionsShown, TOGGLE_FILTER_OPTIONS);
 		filtersButton.setTooltip(Tooltip.of(TOGGLE_FILTER_OPTIONS));
 		ButtonWidget reloadSButton = new TexturedButtonWidget(paneWidth / 2 + searchBoxWidth / 2 - 20 / 2 + 22, 22, 20, 20, 0, 0, 20, RELOADS_BUTTON_LOCATION, 32, 64, button -> {
+			serverList = new ServerList(client);
+			serverList.loadFile();
 			MainNetwork.reloadAllServers(serverList);
 			button.active = false;
 			new Thread(() -> {
@@ -521,6 +567,7 @@ while(true) {
 		this.addDrawableChild(new ButtonWidget(77, 45, textRenderer.getWidth(showHBT)+6, 20, showHBT, button -> {
 			ModMenuConfig.SHOWHIDDENSERVERS.toggleValue();
 			ModMenuConfigManager.save();
+			calcServersSize();
 			modList.reloadFilters();
 		}, Supplier::get) {
 			@Override
@@ -578,7 +625,10 @@ while(true) {
 //			DrawContext.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("modmenu.dropInfo.line2").formatted(Formatting.GRAY), this.width - this.modList.getWidth() / 2, RIGHT_PANE_Y / 2 + 1, 16777215);
 //		}
 		if (!ModMenuConfig.CONFIG_MODE.getValue()) {
-			Text fullModCount = Text.translatable("modmenu.showingMods.n", ModMenu.SMODS.values().size());
+
+
+
+			Text fullModCount = Text.translatable("servermodmenu.showingMods.n", amountofvmods);
 			if (!ModMenuConfig.CONFIG_MODE.getValue() && updateFiltersX()) {
 				if (filterOptionsShown) {
 					if (!ModMenuConfig.SHOW_LIBRARIES.getValue() || textRenderer.getWidth(fullModCount) <= filtersX - 5) {
@@ -587,7 +637,7 @@ while(true) {
 						if (selected == null) {
 							DrawContext.drawText(textRenderer, Text.translatable("modmenu.adddamnservers"), searchBoxX, 46, 0xFF0000, true);
 						} else {
-							DrawContext.drawText(textRenderer, Text.translatable("modmenu.showingMods.n", ModMenu.SMODS.values().size()).asOrderedText(), searchBoxX, 46, 0xFFFFFF, false);
+							DrawContext.drawText(textRenderer, Text.translatable("servermodmenu.showingMods.n", amountofvmods).asOrderedText(), searchBoxX, 46, 0xFFFFFF, false);
 							DrawContext.drawText(textRenderer, computeLibraryCountText().asOrderedText(), searchBoxX, 57, 0xFFFFFF, false);
 						}
 					}
@@ -598,8 +648,8 @@ while(true) {
 						if (selected == null) {
 							DrawContext.drawText(textRenderer, Text.translatable("modmenu.adddamnservers"), searchBoxX, 46, 0xFF0000, true);
 						} else {
-							DrawContext.drawText(textRenderer, Text.translatable("modmenu.showingMods.n", ModMenu.SMODS.values().size()).asOrderedText(), searchBoxX, 46, 0xFFFFFF, false);
-							DrawContext.drawText(textRenderer, Text.translatable("modmenu.showingMods.n", ModMenu.SMODS.values().size()).asOrderedText(), searchBoxX, 57, 0xFFFFFF, false);
+							DrawContext.drawText(textRenderer, Text.translatable("servermodmenu.showingMods.n", amountofvmods).asOrderedText(), searchBoxX, 46, 0xFFFFFF, false);
+							DrawContext.drawText(textRenderer, Text.translatable("servermodmenu.showingMods.n", amountofvmods).asOrderedText(), searchBoxX, 57, 0xFFFFFF, false);
 						}
 					}
 				}
@@ -639,6 +689,11 @@ while(true) {
 					}
 
 					DrawContext.drawText(textRenderer, smod.getVersion(), x + imageOffset, RIGHT_PANE_Y + 2 + lineSpacing, 0x808080, false);
+					if(smod.isOptional){
+						DrawContext.drawText(textRenderer, OptModT, x + imageOffset, RIGHT_PANE_Y + 10 + lineSpacing, 0x808080, false);
+					} else {
+						DrawContext.drawText(textRenderer, ReqModT, x + imageOffset, RIGHT_PANE_Y + 10 + lineSpacing, 0x808080, false);
+					}
 
 
 					String authors;
@@ -772,7 +827,7 @@ while(true) {
 	}
 
 	private boolean updateFiltersX() {
-		if ((filtersWidth + textRenderer.getWidth(Text.translatable("modmenu.showingMods.n", ModMenu.SMODS.values().size())) + 20) >= searchRowWidth && ((filtersWidth + textRenderer.getWidth(Text.translatable("modmenu.showingMods.n", ModMenu.SMODS.values().size())) + 20) >= searchRowWidth || (filtersWidth + textRenderer.getWidth(computeLibraryCountText()) + 20) >= searchRowWidth)) {
+		if ((filtersWidth + textRenderer.getWidth(Text.translatable("servermodmenu.showingMods.n", ModMenu.SMODS.values().size())) + 20) >= searchRowWidth && ((filtersWidth + textRenderer.getWidth(Text.translatable("servermodmenu.showingMods.n", ModMenu.SMODS.values().size())) + 20) >= searchRowWidth || (filtersWidth + textRenderer.getWidth(computeLibraryCountText()) + 20) >= searchRowWidth)) {
 			filtersX = paneWidth / 2 - filtersWidth / 2;
 			return !filterOptionsShown;
 		} else {
