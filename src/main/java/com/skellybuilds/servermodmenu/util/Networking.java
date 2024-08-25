@@ -173,8 +173,23 @@ public class Networking {
 
 				connect(ip, ports.get(ip));
 				while(!isSocketValid(ip)){
-					LOGGER.info("Waiting for connection {}", ip);
+					if(Objects.equals(networkErrors.get(ip), "ERR")){
+						LOGGER.info("Connection Failed! Retrying one more time");
+						connect(ip, ports.get(ip));
+						while(!isSocketValid(ip)){
+							if(Objects.equals(networkErrors.get(ip), "ERR")){
+								LOGGER.error("FAILED to connect!");
+								return;
+							}
+						}
+					} else {
+						LOGGER.info("Waiting for connection {}", ip);
+					}
 				}
+
+
+
+
 				String fileN = requestNResponse(ip, "getmod|" + id);
 
 				if (fileN == null) {
@@ -276,7 +291,9 @@ public class Networking {
 
 		fD.setName("[ServerModMenu] Download Manager - "+ip+" - "+fD.getId());
 		MainNetwork.downloadThreads.put(ip, fD);
-		MainNetwork.downloadThreads.get(ip).start();
+		if(MainNetwork.downloadThreads.get(ip) != null){
+			MainNetwork.downloadThreads.get(ip).start();
+		}
 
 	}
 

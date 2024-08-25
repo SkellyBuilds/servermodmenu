@@ -90,8 +90,6 @@ public class ModsScreen extends Screen {
 	private ServerList serverList;
 	public AtomicInteger amountofvmods = new AtomicInteger();
 
-
-
 	public ModsScreen(Screen previousScreen) {
 		super(Text.translatable("servermodmenu.title"));
 		this.previousScreen = previousScreen;
@@ -123,8 +121,19 @@ public class ModsScreen extends Screen {
 	}
 
 	public void switchToConfirm(){
-		MinecraftClient.getInstance().setScreen(new ConfirmationScreen(this, this::resCB, this::backCB, Text.literal("Do you wish to close the game?")
-			.formatted(Formatting.ITALIC).formatted(Formatting.GREEN)));
+			this.client.execute(() -> {
+				 this.client.setScreen(new ConfirmationScreen(this, this::resCB, this::backCB, Text.literal("All of your mods have finished downloading! Do you wish to close the game?")
+					.formatted(Formatting.ITALIC).formatted(Formatting.GREEN)));
+			});
+
+	}
+
+	public void switchToConfirmCS(String CSText){
+		this.client.execute(() -> {
+			this.client.setScreen(new ConfirmationScreen(this, this::resCB, this::backCB, Text.literal(CSText)
+				.formatted(Formatting.ITALIC).formatted(Formatting.GREEN)));
+		});
+
 	}
 
 	@Override
@@ -164,8 +173,6 @@ public class ModsScreen extends Screen {
 
 	@Override
 	protected void init() {
-
-
 
 		serverList = new ServerList(client);
 		serverList.loadFile();
@@ -230,62 +237,90 @@ public class ModsScreen extends Screen {
 
 		// Downloads all from each server. Yep, may take time!
 		ButtonWidget downloadAllSButton = new TexturedButtonWidget(paneWidth / 2 + searchBoxWidth / 2 - 20 / 2 + 41, 22, 20, 20, 0, 0, 20, DOWNLOSD_BUTTON_LOCATION, 32, 64, button -> {
+
 			final SoundManager[] tempmgr = new SoundManager[1];
 			boolean change = false;
-
+button.active = false;
 Thread finalT = new Thread(() -> {
-	for (ModListEntry child : modList.children()) {
-
+	AtomicBoolean isERRORD = new AtomicBoolean(false);
+	AtomicBoolean isSUCONCE = new AtomicBoolean(false);
+	modList.children().forEach((child) -> {
 		if(child.isFirst){
 			EntryButton mButton = ModMenu.buttonEntries.get(child.serverName);
-			if(!change) {
+			mButton.active = false;
+		}
+	});
+
+	modList.children().forEach((child) -> {
+		if(child.isFirst) {
+			EntryButton mButton = ModMenu.buttonEntries.get(child.serverName);
+			if (!change) {
 				tempmgr[0] = mButton.SOUNDMANAGER;
 			}
-			Thread mWa = new Thread(() -> {
-				mButton.visible = false;
-				boolean e = child.downloadA(mButton);
-				while(true){
-					if(e){
+			child.downloadA(mButton);
+			boolean isDT0 = false;
+			boolean isDTFW = false;
+			while (true) {
+				if(MainNetwork.isDthreadDone(child.serverName)){
+					isDT0 = true;
+				}
+				if(isDT0 && !isDTFW){
+					try {
+						Thread.sleep(2950);
+					} catch (InterruptedException e) {
+						LOGGER.error("Interrupted: {}", e.toString());
+					}
+					if(MainNetwork.isDthreadDone(child.serverName)){
+						if(Objects.equals(MainNetwork.networkErrors.get(child.serverName), "ERR")){
+							button.active = true;
+							button.visible = true;
+							mButton.active = true;
+							mButton.visible = true;
+							tempmgr[0].play(PositionedSoundInstance.master(SoundEvents.ENTITY_VILLAGER_NO, 1.0F));
+							isERRORD.set(true);
+							break;
+						} else {
+							isDTFW = true;
+							isSUCONCE.set(true);
+						}
+					} else isDT0 = false;
+				} else {
+					if(!isDTFW) {
+						try {
+							Thread.sleep(750);
+						} catch (InterruptedException e) {
+							LOGGER.error("Interrupted: {}", e.toString());
+						}
+					} else {
 						break;
 					}
-					try {
-						Thread.sleep(750);
-					} catch (InterruptedException ex) {
-						LOGGER.error(ex.toString());
-					}
-				}
-			});
-			mWa.start();
-
-			while(true){
-				if(mWa.getState() != Thread.State.RUNNABLE){
-					break;
-				}
-				try {
-					Thread.sleep(850);
-				} catch (InterruptedException e) {
-					LOGGER.error(e.toString());
 				}
 			}
+			if(!isERRORD.get() && !isSUCONCE.get()) {
+				mButton.visible = false;
+			}
 		}
+	});
+
+	// if no errors & downloaded a server sucessfully
+	if(!isERRORD.get() && isSUCONCE.get()) {
+		tempmgr[0].play(PositionedSoundInstance.master(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F));
+		button.visible = false;
+		switchToConfirm();
+	} // a server downlaoded successfully but another one failed!
+	else if(isERRORD.get() && isSUCONCE.get()) {
+		tempmgr[0].play(PositionedSoundInstance.master(SoundEvents.ENTITY_PLAYER_BIG_FALL, 1.0F));
+		//button.visible = false;
+		switchToConfirmCS("A server's mod successfully were downloaded but another one failed!!! Do you wish to close the game?");
+	} // All servers failed to download!!!
+	else if(isERRORD.get() && !isSUCONCE.get()){
+		tempmgr[0].play(PositionedSoundInstance.master(SoundEvents.ENTITY_PLAYER_DEATH, 1.0F));
 	}
 });
 
 finalT.start();
 
-while(true) {
-	if(finalT.getState() != Thread.State.RUNNABLE){
-		ModMenu.isAllDFB = true;
-		if(tempmgr[0] == null) break;
-		tempmgr[0].play(PositionedSoundInstance.master(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, 1.0F));
-		break;
-	}
-	try {
-		Thread.sleep(850);
-	} catch (InterruptedException e) {
-		LOGGER.error(e.toString());
-	}
-}
+
 
 		}){
 			@Override
@@ -351,21 +386,29 @@ while(true) {
 
 				orgw.start();
 
+				AtomicBoolean isNE = new AtomicBoolean(false);
+
 				Thread bla = new Thread(() -> {
 					while (true) {
 						if (orgw.getState() != Thread.State.RUNNABLE) {
-							ModMenu.idsDLD.add(selected.getSMod().id);
-							selected.smod.isDownloaded = true;
+							if(Objects.equals(MainNetwork.networkErrors.get(selected.serverName), "ERR")){
 							button.active = true;
-							if(!ModMenu.isAllDFB){
-								List<Boolean> isAllt = new ArrayList<>();
-								ModMenu.buttonEntries.forEach((name, mButton) -> {
-									if(!mButton.visible)
-										isAllt.add(true);
-								});
+							button.visible = true;
+								isNE.set(true);
+							} else {
+								ModMenu.idsDLD.add(selected.getSMod().id);
+								selected.smod.isDownloaded = true;
+								button.active = true;
+								if (!ModMenu.isAllDFB) {
+									List<Boolean> isAllt = new ArrayList<>();
+									ModMenu.buttonEntries.forEach((name, mButton) -> {
+										if (!mButton.visible)
+											isAllt.add(true);
+									});
 
-								if(isAllt.size() == ModMenu.buttonEntries.size())
-									ModMenu.isAllDFB = true;
+									if (isAllt.size() == ModMenu.buttonEntries.size())
+										ModMenu.isAllDFB = true;
+								}
 							}
 					break;
 						}
@@ -377,7 +420,7 @@ while(true) {
 
 				do {
 					if (bla.getState() != Thread.State.RUNNABLE) {
-						switchToConfirm();
+						if(!isNE.get()) switchToConfirm();
 						break;
 					}
 				} while (true);
@@ -424,6 +467,7 @@ while(true) {
 						}
 
 						visible = true;
+						active = true;
 
 						super.render(DrawContext, mouseX, mouseY, delta);
 						return;

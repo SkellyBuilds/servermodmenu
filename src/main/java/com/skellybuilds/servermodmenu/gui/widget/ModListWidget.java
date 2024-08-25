@@ -42,6 +42,8 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 	private boolean scrolling;
 	private final FabricIconHandler iconHandler = new FabricIconHandler();
 	private boolean isInit = false;
+	private double scrollAm;
+	private int origT;
 
 	public ModListWidget(MinecraftClient client, int width, int height, int y1, int y2, int entryHeight, String searchTerm, ModListWidget list, ModsScreen parent) {
 		super(client, width, height, y1, y2, entryHeight);
@@ -161,6 +163,10 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 		return super.removeEntry(entry);
 	}
 
+	protected void removeAllEntries(){
+		children().forEach(super::removeEntry);
+	}
+
 	@Override
 	protected ModListEntry remove(int index) {
 		if(getEntry(index).useSMOD()) addedMods.remove(getEntry(index).smod);
@@ -191,6 +197,8 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 		this.clearEntries();
 		SaddedMods.clear();
 		addedMods.clear();
+		this.removeAllEntries();
+
 		if (useSMod) {
 
 
@@ -224,7 +232,9 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 				AtomicBoolean isHidden = new AtomicBoolean(false);
 				boolean isF = true;
 				for (SMod mod : matched) {
-					if(isF){
+
+
+
 						ModMenuConfig.HIDDEN_SERVERS.getValue().forEach((name) -> {
 							if(Objects.equals(name, serverName)){
 								if(!ModMenuConfig.SHOWHIDDENSERVERS.getValue()){
@@ -232,7 +242,7 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 								}
 							}
 						});
-					}
+
 
 				if(matched.isEmpty()){
 					if(isHidden.get() && ModMenuConfig.SHOWHIDDENSERVERS.getValue() || !isHidden.get()) {
@@ -245,11 +255,17 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 
 					if(isHidden.get() && ModMenuConfig.SHOWHIDDENSERVERS.getValue() || !isHidden.get()) {
 						this.addEntry(new IndependentEntry(mod, this, serverName, isF, false, addMoreY.get()));
+
 					}
-					isF = false;
+
+					if(isHidden.get() && ModMenuConfig.SHOWHIDDENSERVERS.getValue() || !isHidden.get()){
+						isF = false;
+					}
 				}
 
 				addMoreY.set(true);
+
+
 
 				if(children().size() > 1) {
 					setSelected(getEntry(0));
@@ -257,11 +273,20 @@ public class ModListWidget extends AlwaysSelectedEntryListWidget<ModListEntry> i
 					setSelected(null);
 				}
 
-				if (getScrollAmount() > Math.max(0, this.getMaxPosition() - (this.bottom - this.top - 4))) {
-					setScrollAmount(Math.max(0, this.getMaxPosition() - (this.bottom - this.top - 4)));
-				}
+
 			});
 
+//			if(children().size() > 2){
+//				if(addMoreY.get()){
+//					int wa2 = children().stream().filter((ra) -> ra.isFirst).toList().size()-1;
+//
+//					this.top = this.top - 6 * wa2;
+//				}
+//			}
+
+			if (getScrollAmount() > Math.max(0, this.getMaxPosition() - (this.bottom - this.top - 4))) {
+				setScrollAmount(Math.max(0, this.getMaxPosition() - (this.bottom - this.top - 4)));
+			}
 			parent.calcServersSize();
 
 			isInit = true;
@@ -359,20 +384,19 @@ if(isInit) {
 		ModListEntry entry = this.getEntry(index);
 
 
-		int entryTop = entry.isFirst ? this.getRowTop(index) + 12 : this.getRowTop(index) + 15;
+		int entryTop = this.getRowTop(index) + 12;
 		//int entryBottom = entry.isFirst ? this.getRowTop(index) + this.itemHeight + 8 : this.getRowTop(index) + this.itemHeight ;
 
-		if(entry.moreY) entryTop = entryTop + 17;
+		//if(entry.moreY) entryTop = entryTop + 17;
 
 
 		int entryHeight = this.itemHeight - 4;
 
-//		if(entry.moreY){
-//			this.bottom = this.bottom + 7;
-//		}
-
 		int rowWidth = this.getRowWidth();
 		int entryLeft;
+		if(entry.moreY){
+		//	rowWidth = rowWidth + 8;
+		}
 		if (this.isSelectedEntry(index) && !entry.renderSvnNO) {
 
 			entryLeft = getRowLeft() - 2 + entry.getXOffset();

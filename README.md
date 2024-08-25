@@ -1,6 +1,9 @@
-# Server Mod Menu
+# Server Mod Menu - 0.8.5.9
 ### A direct fork of [ModMenu](https://github.com/TerraformersMC/ModMenu) made for downloading and getting details of server mods
 ![An image](https://cdn.modrinth.com/data/mdAdBC85/images/bab950bf491ccdb79a2b7b5001cf3ebc86f847cb.png)
+
+## Do you need to update?
+I recommand you download this update just because of the added measures to downloads that fail. 
 
 ## Running and using this mod
 It's pretty easy, download the mod's jar file and run minecraft.
@@ -17,11 +20,9 @@ Since this mod needs to see the mods, i created a secondary server side mod name
 You can download the appropriate version of [SCMC](https://github.com/SkellyBuilds/scmc) for your server, make sure to read the documentation so that you don't make your members download unnecessary server side mods that aren't flagged as server side only.
 
 ## ChangeLog
-* Fixed the calculations for Showing [Number] servers
-* Added different (buggy) colors for optional & required mods for the mod list.
-* Optional mods are an thing now (As of SCMC version 0.9.2.7) and they are now natively supported to servermodmenu
-* Bug fixes
-* ***Added SRV support! Learn more [here](https://github.com/SkellyBuilds/scmc/wiki/Getting-started-using-SCMC#how-do-i-use-different-ports-properly)***
+You wouldn't be seeing much BIG changelogs other than bug fixes and added adjustments as the first release itself had everything 
+* Adding measures to prevent downloading or setting the wrong variables when a download fails
+* A bit of GUI fixes.
 
 ## Stuff that hasn't been worked on
 * **Translations - Switching the language that isn't EN_US will pretty make the mod chaotic. I will plan on making a crowdin as well but for now. Sorry :(**

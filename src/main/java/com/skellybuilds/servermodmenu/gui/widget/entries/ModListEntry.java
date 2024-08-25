@@ -60,6 +60,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 	private int ButtonY;
 	private int ButtonSX = 20;
 	private int ButtonSY = 20;
+	public boolean netER = false;
 //	private boolean isPrevHB = false;
 //	private boolean disableB = false;
 //	private boolean isDone = false;
@@ -74,28 +75,42 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 				ModMenu.LOGGER.info("processing chunk");
 				this.processChunk(tList);
 
+
+
 				try {
 					Thread.sleep(1250L);
 				} catch (InterruptedException var3) {
 					Thread.currentThread().interrupt();
 				}
 			}
-	if(!ModMenu.isAllDFB){
-		List<Boolean> isAllt = new ArrayList<>();
-		ModMenu.buttonEntries.forEach((name, mButton) -> {
-			if(!mButton.visible)
-				isAllt.add(true);
-		});
 
-		if(isAllt.size() == ModMenu.buttonEntries.size())
-			ModMenu.isAllDFB = true;
-	}
-	button.setVisible(false);
-	button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0F));
+			if(netER){
+				button.visible = true;
+				button.active = true;
+				button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_VILLAGER_NO, 1.0F));
+				return;
+			} else {
+
+				if (!ModMenu.isAllDFB) {
+					List<Boolean> isAllt = new ArrayList<>();
+					ModMenu.buttonEntries.forEach((name, mButton) -> {
+						if (!mButton.visible)
+							isAllt.add(true);
+					});
+
+					if (isAllt.size() == ModMenu.buttonEntries.size())
+						ModMenu.isAllDFB = true;
+				}
+				button.setVisible(false);
+				button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_PLAYER_LEVELUP, 1.0F));
+				list.getParent().switchToConfirm();
+			}
 })).start();
 
 
-		if(!ModMenu.isAllDFB){
+		if(!ModMenu.isAllDFB && !netER){
+
+
 			List<Boolean> isAllt = new ArrayList<>();
 			ModMenu.buttonEntries.forEach((name, mButton) -> {
 				if(!mButton.visible)
@@ -106,7 +121,10 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 				ModMenu.isAllDFB = true;
 		}
 
+
+
 	}
+
 
 	public void setHiddenS(EntryButton button){
 		AtomicBoolean isExisting = new AtomicBoolean(false);
@@ -137,6 +155,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 				ModMenu.LOGGER.info("processing chunk");
 				this.processChunk(tList);
 
+
 				try {
 					Thread.sleep(1250L);
 				} catch (InterruptedException var3) {
@@ -144,19 +163,27 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 				}
 			}
 
-			if(!ModMenu.isAllDFB){
-				List<Boolean> isAllt = new ArrayList<>();
-				ModMenu.buttonEntries.forEach((name, mButton) -> {
-					if(!mButton.visible)
-						isAllt.add(true);
-				});
 
-				if(isAllt.size() == ModMenu.buttonEntries.size())
-					ModMenu.isAllDFB = true;
-			}
-			button.setVisible(false);
-			button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_ARROW_HIT_PLAYER, 1.0F));
+if(netER){
+	button.visible = true;
+	button.active = true;
+	button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_VILLAGER_NO, 1.0F));
+} else {
+	if (!ModMenu.isAllDFB) {
+		List<Boolean> isAllt = new ArrayList<>();
+		ModMenu.buttonEntries.forEach((name, mButton) -> {
+			if (!mButton.visible)
+				isAllt.add(true);
 		});
+
+		if (isAllt.size() == ModMenu.buttonEntries.size())
+			ModMenu.isAllDFB = true;
+	}
+	button.setVisible(false);
+	button.SOUNDMANAGER.play(PositionedSoundInstance.master(SoundEvents.ENTITY_ARROW_HIT_PLAYER, 1.0F));
+}
+		});
+
 		t0.start();
 		boolean a = false;
 		while(true){
@@ -166,6 +193,7 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 			}
 		}
 		return a;
+
 	}
 
 	private void reloadServer(EntryButton button){
@@ -282,15 +310,13 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 
 	@Override
 	public void render(DrawContext DrawContext, int index, int y, int x, int rowWidth, int rowHeight, int mouseX, int mouseY, boolean hovered, float delta) {
+//		if(moreY){
+//			y = y + 14;
+//		}
 		if(useSMod) {
-//			if(moreY){
-//				y = y + 14;
-//			}
-
 			int iconSize = ModMenuConfig.COMPACT_LIST.getValue() ? COMPACT_ICON_SIZE : FULL_ICON_SIZE;
 			RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 			if(isFirst){
-
 				Text svName = Text.literal(serverName);
 				StringVisitable trimmedName = svName;
 				int maxNameWidth = rowWidth - iconSize - 3;
@@ -303,6 +329,9 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 				reloadB.ButtonX = x + font.getWidth(svName) + 35;
 				hideB.ButtonX = x + font.getWidth(svName) + 55;
 				int wa = y;
+				if(moreY){
+					wa = wa + 12;
+				}
 				testB.ButtonY = wa-20;
 				reloadB.ButtonY = wa - 20;
 				hideB.ButtonY = wa-20;
@@ -318,15 +347,21 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 						DrawContext.fill(font.getWidth(trimmedName) + 8, wa - 11, font.getWidth(trimmedName) + 6, wa - 12, 0xFF00FF00);
 					}
 						else if (serverStatR.status == 1) {
-						DrawContext.fill(font.getWidth(trimmedName) - 16, wa - 11, font.getWidth(trimmedName) - 15, wa - 10, 0xFF808080);
+						DrawContext.fill(font.getWidth(trimmedName) + 8, wa - 11, font.getWidth(trimmedName) + 6, wa - 12, 0xFF808080);
 					}else {
-						DrawContext.fill(font.getWidth(trimmedName) - 16, wa - 11, font.getWidth(trimmedName) - 15, wa - 10, 0xFFFF0000);
+						DrawContext.fill(font.getWidth(trimmedName) + 8, wa - 11, font.getWidth(trimmedName) + 6, wa - 12, 0xFFFF0000);
 						}
 
 				}
 
-				y = y+2;
-			} else 	y = y + 3;
+				y = y + 4;
+				if(moreY){
+				y = y + 8;
+				}
+			} else 	y = y + 6;
+			if(moreY && !isFirst){
+				y = y + 3;
+			}
 			if(renderSvnNO){
 				return;
 			}
@@ -462,7 +497,14 @@ public class ModListEntry extends AlwaysSelectedEntryListWidget.Entry<ModListEnt
 
 		for (SMod item : chunk) {
 			MainNetwork.requestNDownload(this.serverName, item.getId());
-			ModMenu.idsDLD.add(item.getId());
+			if(Objects.equals(MainNetwork.networkErrors.get(this.serverName), "ERR")){
+				netER = true;
+			} else {
+				netER = false;
+			}
+			if(!netER) {
+				ModMenu.idsDLD.add(item.getId());
+			}
 		}
 
 		return true;
