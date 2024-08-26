@@ -1,9 +1,9 @@
-# Server Mod Menu - 0.8.5.9
+# Server Mod Menu - 0.8.6.0
 ### A direct fork of [ModMenu](https://github.com/TerraformersMC/ModMenu) made for downloading and getting details of server mods
 ![An image](https://cdn.modrinth.com/data/mdAdBC85/images/bab950bf491ccdb79a2b7b5001cf3ebc86f847cb.png)
 
 ## Do you need to update?
-I recommand you download this update just because of the added measures to downloads that fail. 
+Not much other than the new translation api support that has been added in SCMC 0.9.4.2 - All previous versions of SCMC should work with this fine so don't worry
 
 ## Running and using this mod
 It's pretty easy, download the mod's jar file and run minecraft.
@@ -21,8 +21,7 @@ You can download the appropriate version of [SCMC](https://github.com/SkellyBuil
 
 ## ChangeLog
 You wouldn't be seeing much BIG changelogs other than bug fixes and added adjustments as the first release itself had everything 
-* Adding measures to prevent downloading or setting the wrong variables when a download fails
-* A bit of GUI fixes.
+* Translation API Support
 
 ## Stuff that hasn't been worked on
 * **Translations - Switching the language that isn't EN_US will pretty make the mod chaotic. I will plan on making a crowdin as well but for now. Sorry :(**

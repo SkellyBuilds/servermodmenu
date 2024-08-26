@@ -14,6 +14,7 @@ import com.skellybuilds.servermodmenu.util.ModrinthUtil;
 import com.skellybuilds.servermodmenu.util.Networking;
 import com.skellybuilds.servermodmenu.util.mod.Mod;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.client.MinecraftClient;
@@ -21,6 +22,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.*;
 import net.minecraft.client.option.ServerList;
 import net.minecraft.client.resource.language.I18n;
+import net.minecraft.client.resource.language.LanguageDefinition;
+import net.minecraft.client.resource.language.LanguageManager;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import org.slf4j.Logger;
@@ -51,8 +54,8 @@ public class ModMenu implements ClientModInitializer {
 	private static int cachedDisplayedModCount = -1;
 	public static boolean runningQuilt = FabricLoader.getInstance().isModLoaded("quilt_loader");
 	public static boolean devEnvironment = FabricLoader.getInstance().isDevelopmentEnvironment();
-
-
+	boolean event = false;
+	private static String prevLoc;
 
 	public static Screen getConfigScreen(String modid, Screen menuScreen) {
 		if (!delayedScreenFactoryProviders.isEmpty()) {
@@ -67,6 +70,55 @@ public class ModMenu implements ClientModInitializer {
 			return factory.create(menuScreen);
 		}
 		return null;
+	}
+
+	private static void detectLangEvent(ServerList serverList, MinecraftClient client){
+		LanguageManager languageManager = client.getLanguageManager();
+
+		// Get the current language definition
+		String currentLanguage = languageManager.getLanguage();
+
+		if(!Objects.equals(currentLanguage, prevLoc)){
+			sendlocaletonetwork(serverList, client);
+		} else {
+			try {
+				Thread.sleep(1250);
+			} catch (InterruptedException e) {
+				LOGGER.error("Interrupted: {}", e.toString());
+			}
+		}
+
+	}
+
+	public static void sendlocaletonetwork(ServerList serverList, MinecraftClient client){
+		serverList.loadFile();
+		for (int i = 0; i < serverList.size(); i++) {
+			ServerInfo serverInfo = serverList.get(i);
+
+			if(serverInfo.address.contains(":")){
+				serverInfo.address = serverInfo.address.substring(0, serverInfo.address.indexOf(":"));
+			}
+
+			Networking.ServerAddress parsedAd = Networking.ServerAddress.parse(serverInfo.address);
+
+			Optional<InetSocketAddress> optAddress = Networking.AllowedAddressResolver.DEFAULT.resolve(parsedAd).map(Address::getInetSocketAddress);
+			if(optAddress.isPresent()) {
+				final InetSocketAddress inetSocketAddress = (InetSocketAddress) optAddress.get();
+
+				String testS = inetSocketAddress.getAddress().getHostAddress();
+				// Access the LanguageManager
+				LanguageManager languageManager = client.getLanguageManager();
+
+				// Get the current language definition
+				String currentLanguageC = languageManager.getLanguage();
+
+				prevLoc = currentLanguageC;
+
+				MainNetwork.connect(testS, inetSocketAddress.getPort());
+
+				MainNetwork.sendDataToServer(testS, "addploc|"+client.getSession().getUsername() + "|" +currentLanguageC);
+			}
+		}
 	}
 
 	public static void sendmodstonetwork(ServerList serverList, MinecraftClient client){
@@ -95,6 +147,8 @@ public class ModMenu implements ClientModInitializer {
 				MainNetwork.connect(testS, inetSocketAddress.getPort());
 
 				MainNetwork.sendDataToServer(testS, "addpmods|" + data);
+
+
 			} else {
 				List<String> stringArray = new ArrayList<>();
 				for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
@@ -112,9 +166,19 @@ public class ModMenu implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-
 		MinecraftClient client = MinecraftClient.getInstance();
 		ServerList serverList = new ServerList(client);
+
+		ClientTickEvents.END_CLIENT_TICK.register(client2 -> {
+			new Thread(() -> { if(client2 != null)detectLangEvent(serverList, client2); }).start();
+			if(!event) {
+				if (client2 != null && client2.getLanguageManager() != null) {
+					sendlocaletonetwork(serverList, client2);
+					event = true;
+				}
+			}
+		});
+
 		MainNetwork.reloadAllServers(serverList);
 
 

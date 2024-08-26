@@ -3,7 +3,7 @@
   "id": "servermodmenu",
   "name": "Server Mod Menu",
   "version": "$version",
-  "environment": "client",
+  "environment": "*",
   "license": "MIT",
   "icon": "assets/servermodmenu/icon.png",
   "entrypoints": {
@@ -104,6 +104,9 @@
     "mixins.servermodmenu.json"
   ],
   "custom": {
+    "scmc": {
+      "checkmytranslationstext": true
+    },
     "modmenu": {
       "links": {
         "modmenu.discord": "https://discord.gg/uk6wM7WA"

@@ -381,7 +381,7 @@ public class Networking {
 						GsonBuilder gsonBuilder = new GsonBuilder();
 						gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 						Gson gson = gsonBuilder.create();
-						String str = MainNetwork.requestNResponse(finalIp, "getall");
+						String str = MainNetwork.requestNResponse(finalIp, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 						ModsA[0] = gson.fromJson(str, SMod[].class);
 						LOGGER.info(Arrays.toString(ModsA[0]));
 						boolean sinit = false;
@@ -415,7 +415,8 @@ public class Networking {
 						GsonBuilder gsonBuilder = new GsonBuilder();
 						gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 						Gson gson = gsonBuilder.create();
-						String str = MainNetwork.requestNResponse(finalIp, "getall");
+
+						String str = MainNetwork.requestNResponse(finalIp, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 						ModsA[0] = gson.fromJson(str, SMod[].class);
 						LOGGER.info(Arrays.toString(ModsA[0]));
 						boolean sinit = false;
@@ -452,7 +453,7 @@ public class Networking {
 							GsonBuilder gsonBuilder = new GsonBuilder();
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
-							String str = MainNetwork.requestNResponse(finalIp1, "getall");
+							String str = MainNetwork.requestNResponse(finalIp1, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
 							boolean sinit = false;
@@ -479,7 +480,7 @@ public class Networking {
 							GsonBuilder gsonBuilder = new GsonBuilder();
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
-							String str = MainNetwork.requestNResponse(finalIp1, "getall");
+							String str = MainNetwork.requestNResponse(finalIp1, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
 							boolean sinit = false;
@@ -546,7 +547,7 @@ public class Networking {
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
 							MainNetwork.connect(serverInfo.address, port);
-							String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
+							String str = MainNetwork.requestNResponse(serverInfo.address, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
 							boolean sinit = false;
@@ -581,7 +582,7 @@ public class Networking {
 							gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 							Gson gson = gsonBuilder.create();
 							MainNetwork.connect(serverInfo.address, port);
-							String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
+							String str = MainNetwork.requestNResponse(serverInfo.address, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 							ModsA[0] = gson.fromJson(str, SMod[].class);
 							LOGGER.info(Arrays.toString(ModsA[0]));
 							boolean sinit = false;
@@ -618,7 +619,7 @@ public class Networking {
 								gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 								Gson gson = gsonBuilder.create();
 								MainNetwork.connect(serverInfo.address, port);
-								String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
+								String str = MainNetwork.requestNResponse(serverInfo.address, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 								ModsA[0] = gson.fromJson(str, SMod[].class);
 								LOGGER.info(Arrays.toString(ModsA[0]));
 								boolean sinit = false;
@@ -647,7 +648,7 @@ public class Networking {
 								gsonBuilder.registerTypeAdapter(SMod.class, new ModAdapter());
 								Gson gson = gsonBuilder.create();
 								MainNetwork.connect(serverInfo.address, port);
-								String str = MainNetwork.requestNResponse(serverInfo.address, "getall");
+								String str = MainNetwork.requestNResponse(serverInfo.address, "getall|"+MinecraftClient.getInstance().getSession().getUsername());
 								ModsA[0] = gson.fromJson(str, SMod[].class);
 								LOGGER.info(Arrays.toString(ModsA[0]));
 								boolean sinit = false;
@@ -725,6 +726,7 @@ public class Networking {
 								MinecraftClient client = MinecraftClient.getInstance();
 								ServerList serverList = new ServerList(client);
 								ModMenu.sendmodstonetwork(serverList, client);
+								ModMenu.sendlocaletonetwork(serverList, client);
 							}
 							status = 0;
 							wasD = false;
